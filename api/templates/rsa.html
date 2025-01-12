@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSA Encryption</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 800px;
+            width: 90%;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        form {
+            display: grid;
+            gap: 10px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 2fr; /* Mengatur kolom untuk label dan input */
+            gap: 20px; /* Menambah jarak antara label dan input dalam satu baris */
+            margin-top: 10px;
+            margin-bottom: 15px; /* Menambah jarak antar baris */
+        }
+        label {
+            font-weight: bold;
+        }
+        input, select, button {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+            width: 100%;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px; /* Menambah jarak antara tombol dan elemen sebelumnya */
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RSA Encryption</h1>
+
+        <!-- Bagian Enkripsi -->
+        <h2>Enkripsi</h2>
+        <form id="calculateForm">
+            <div class="form-row">
+                <label for="p">Nilai p (Bilangan Prima):</label>
+                <input type="number" id="p" name="p" required>
+            </div>
+            <div class="form-row">
+                <label for="q">Nilai q (Bilangan Prima):</label>
+                <input type="number" id="q" name="q" required>
+            </div>
+            <button type="submit">Hitung e</button>
+        </form>
+
+        <div id="calculationResult" class="result" style="display: none;"></div>
+
+        <form id="validateEForm" style="display: none;">
+            <div class="form-row">
+                <label for="e">Pilih Nilai e (Public Key):</label>
+                <select id="e" name="e" required></select>
+            </div>
+
+            <button type="button" id="validateE">Enter Public Key</button>
+
+            <div class="form-row">
+                <label for="d">Nilai d (Private Key):</label>
+                <input type="text" id="d" name="d" readonly>
+            </div>
+            <input type="hidden" id="hiddenN" name="n">
+        </form>
+
+        <form id="encryptDecryptForm" style="display: none;">
+            <input type="hidden" id="hiddenE" name="e">
+            <input type="hidden" id="hiddenD" name="d">
+            <input type="hidden" id="hiddenN" name="n">
+            <div class="form-row">
+                <label for="message">Pesan (plain text):</label>
+                <input type="text" id="message" name="message" required>
+            </div>
+            <button type="submit">Process RSA</button>
+        </form>
+
+        <div id="encryptDecryptResult" class="result" style="display: none;"></div>
+
+        <!-- Bagian Dekripsi -->
+        <h2>Dekripsi</h2>
+        <form id="decryptForm">
+            <div class="form-row">
+                <label for="encryptedMessage">Pesan Terenkripsi:</label>
+                <input type="text" id="encryptedMessage" name="encryptedMessage" required>
+            </div>
+            <div class="form-row">
+                <label for="dDecrypt">Nilai d (Private Key):</label>
+                <input type="text" id="dDecrypt" name="dDecrypt" required>
+            </div>
+            <div class="form-row">
+                <label for="nDecrypt">Nilai n:</label>
+                <input type="text" id="nDecrypt" name="nDecrypt" required>
+            </div>
+            <button type="submit">Dekripsi</button>
+        </form>
+
+        <div id="decryptResult" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const calculateForm = document.getElementById('calculateForm');
+        const validateEForm = document.getElementById('validateEForm');
+        const encryptDecryptForm = document.getElementById('encryptDecryptForm');
+        const decryptForm = document.getElementById('decryptForm');
+        const calculationResult = document.getElementById('calculationResult');
+        const encryptDecryptResult = document.getElementById('encryptDecryptResult');
+        const decryptResult = document.getElementById('decryptResult');
+        const hiddenNInputs = document.querySelectorAll('#hiddenN'); 
+
+        // Enkripsi
+        calculateForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(calculateForm);
+            const response = await fetch('/calculate', { method: 'POST', body: formData });
+            const result = await response.json();
+
+            if (result.error) {
+                calculationResult.style.display = 'block';
+                calculationResult.innerHTML = `<div class="error">${result.error}</div>`;
+                validateEForm.style.display = 'none';
+                encryptDecryptForm.style.display = 'none';
+            } else {
+                calculationResult.style.display = 'block';
+                calculationResult.innerHTML = `Nilai e yang memenuhi syarat: ${result.e.join(', ')}<br>Nilai n: ${result.n}<br> Nilai m : ${result.m} `;
+
+                const eSelect = document.getElementById('e');
+                eSelect.innerHTML = '';
+                result.e.forEach(eValue => {
+                    const option = document.createElement('option');
+                    option.value = eValue;
+                    option.textContent = eValue;
+                    eSelect.appendChild(option);
+                });
+
+                hiddenNInputs.forEach(input => {
+                    input.value = result.n;
+                });
+
+                validateEForm.style.display = 'block';
+                encryptDecryptForm.style.display = 'none';
+            }
+        });
+
+        document.getElementById('validateE').addEventListener('click', async () => {
+            const eSelect = document.getElementById('e');
+            const selectedE = parseInt(eSelect.value);
+            const p = document.getElementById('p').value;
+            const q = document.getElementById('q').value;
+
+            if (!selectedE || !p || !q) {
+                alert('Semua input (e, p, q) harus diisi.');
+                return;
+            }
+
+            const response = await fetch('/calculate_d', {
+                method: 'POST',
+                body: new URLSearchParams({ e: selectedE, p: p, q: q })
+            });
+
+            const result = await response.json();
+
+            if (result.error) {
+                alert(`Error: ${result.error}`);
+            } else {
+                document.getElementById('d').value = result.d;
+                document.getElementById('hiddenE').value = selectedE;
+                document.getElementById('hiddenD').value = result.d;
+                encryptDecryptForm.style.display = 'block';
+            }
+        });
+
+        encryptDecryptForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(encryptDecryptForm);
+
+            const response = await fetch('/encrypt_decrypt', { method: 'POST', body: formData });
+
+            const result = await response.json();
+
+            if (result.error) {
+                encryptDecryptResult.style.display = 'block';
+                encryptDecryptResult.innerHTML = `<div class="error">${result.error}</div>`;
+            } else {
+                encryptDecryptResult.style.display = 'block';
+                encryptDecryptResult.innerHTML = `
+                    <strong>Hasil Enkripsi</strong><br><br>
+                    <strong>Public Key (e,n):</strong><br>${result.e},${result.n}<br><br>
+                    <strong>Private Key (d,n):</strong><br>${result.d},${result.n}<br><br>
+                    <strong>Chipertext:</strong><br>${result.encrypted}<br><br>
+                    <strong>Hasil Dekripsi:</strong><br>${result.decrypted}
+                `;
+            }
+        });
+
+        // Dekripsi
+        decryptForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(decryptForm);
+
+            const response = await fetch('/decrypt', { method: 'POST', body: formData });
+
+            const result = await response.json();
+
+            if (result.error) {
+                decryptResult.style.display = 'block';
+                decryptResult.innerHTML = `<div class="error">${result.error}</div>`;
+            } else {
+                decryptResult.style.display = 'block';
+                decryptResult.innerHTML = `
+                    <strong>Hasil Dekripsi</strong><br><br>
+                    <strong>Pesan Terenkripsi:</strong><br>${result.encryptedMessage}<br><br>
+                    <strong>Pesan Dekripsi:</strong><br>${result.decryptedMessage}
+                `;
+            }
+        });
+        
+    </script>
+</body>
+</html>
